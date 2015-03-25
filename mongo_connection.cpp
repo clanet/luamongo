@@ -1,7 +1,11 @@
-#include <client/dbclient.h>
+#include "..\stdafx.h"
+#include <mongo/client/dbclient.h>
 #include "utils.h"
 #include "common.h"
 
+#include "..\LuaEngine.h"
+
+//extern threadpool::pool gThreadPool;
 using namespace mongo;
 
 extern const luaL_Reg dbclient_methods[];
@@ -53,24 +57,35 @@ static int connection_new(lua_State *L) {
     return resultcount;
 }
 
-
 /*
  * ok,err = connection:connect(connection_str)
  */
 static int connection_connect(lua_State *L) {
+	
     DBClientConnection *connection = userdata_to_connection(L, 1);
-    const char *connectstr = luaL_checkstring(L, 2);
+    std::string connectstr = luaL_checkstring(L, 2);
+	
+	return mongoTask(L, [=](){
+		try{
+			connection->connect(connectstr);
+			return mongoResult(L, true);
+		}
+		catch (std::exception &e) {
+			return mongoResult(L, gs(LUAMONGO_ERR_CONNECT_FAILED, connectstr.c_str(), e.what()));
+		}
+	});
+	MONGO_LUA_ERR_PATH;
 
-    try {
-        connection->connect(connectstr);
-    } catch (std::exception &e) {
-        lua_pushnil(L);
-        lua_pushfstring(L, LUAMONGO_ERR_CONNECT_FAILED, connectstr, e.what());
-        return 2;
-    }
+    //try {
+    //    connection->connect(connectstr);
+    //} catch (std::exception &e) {
+    //    lua_pushnil(L);
+    //    lua_pushfstring(L, LUAMONGO_ERR_CONNECT_FAILED, connectstr, e.what());
+    //    return 2;
+    //}
 
-    lua_pushboolean(L, 1);
-    return 1;
+    //lua_pushboolean(L, 1);
+    //return 1;
 }
 
 
@@ -94,6 +109,7 @@ static int connection_tostring(lua_State *L) {
 
 
 int mongo_connection_register(lua_State *L) {
+
     static const luaL_Reg connection_methods[] = {
         {"connect", connection_connect},
         {NULL, NULL}

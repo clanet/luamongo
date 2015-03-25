@@ -1,8 +1,11 @@
 #include <iostream>
-#include <client/dbclient.h>
+#include <mongo/client/dbclient.h>
 #include "utils.h"
 #include "common.h"
 
+#ifdef _MSC_VER
+#define snprintf _snprintf
+#endif
 using namespace mongo;
 
 void push_bsontype_table(lua_State* L, mongo::BSONType bsontype);

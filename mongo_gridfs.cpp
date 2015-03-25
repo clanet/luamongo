@@ -1,6 +1,6 @@
 #include <iostream>
-#include <client/dbclient.h>
-#include <client/gridfs.h>
+#include <mongo/client/dbclient.h>
+#include <mongo/client/gridfs.h>
 #include "utils.h"
 #include "common.h"
 

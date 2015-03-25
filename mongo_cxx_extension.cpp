@@ -22,9 +22,9 @@
 
 #include <iostream>
 #include <stdlib.h>
-#include <client/redef_macros.h>
-#include <client/dbclient.h>
-#include <client/gridfs.h>
+#include <mongo/client/redef_macros.h>
+#include <mongo/client/dbclient.h>
+#include <mongo/client/gridfs.h>
 #include <fcntl.h>
 #include <fstream>
 #include <utility>
