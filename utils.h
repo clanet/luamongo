@@ -111,4 +111,159 @@ LUALIB_API void luaL_setfuncs(lua_State *L, const luaL_Reg *l, int nup);
 #else
     #define LM_EXPORT
 #endif
+#include <mongo/bson/bsonobj.h>
+#include "..\AsyncTaskMgr.h"
+#include "..\LuaEngine.h"
 
+
+void bson_to_lua(lua_State *L, const mongo::BSONObj &obj);
+void lua_push_value(lua_State *L, const mongo::BSONElement &elem);
+
+
+inline std::string gs(const char msg[], ...){
+	va_list args;
+	va_start(args, msg);
+	std::auto_ptr<char> tempstr(new char[1024 * 1024]);
+	_vsnprintf(tempstr.get(), 1024 * 1024, msg, args);
+	va_end(args);
+	return tempstr.get();
+}
+
+template<class T>
+inline void LuaPush(lua_State *L, T v){
+	lua_tinker::push(L, v);
+}
+
+
+inline void LuaPush(lua_State *L, const std::string& v){
+	lua_pushlstring(L, v.c_str(), v.size());
+}
+
+inline void LuaPush(lua_State *L, const mongo::BSONElement & v){
+	lua_push_value(L, v);
+}
+inline void LuaPush(lua_State *L, const mongo::BSONObj & v){
+	bson_to_lua(L, v);
+}
+
+template<class T>
+void LuaPush(lua_State *L, const std::list<T>& v){
+	lua_newtable(L);
+	int i = 1;
+	for (auto it = v.begin(); it != v.end(); ++it, ++i) {
+		lua_pushnumber(L, i);
+		LuaPush(L, *it);
+		lua_settable(L, -3);
+	}
+}
+template<class T>
+void LuaPush(lua_State *L, const std::vector<T>& v){
+	lua_newtable(L);
+	int i = 1;
+	for (auto it = v.begin(); it != v.end(); ++it, ++i) {
+		lua_pushnumber(L, i);
+		LuaPush(L, *it);
+		lua_settable(L, -3);
+	}
+}
+
+void asyncLuaFunc(std::function<void()> func);
+bool isLuaCoroutine(lua_State *L);
+
+
+template<class T1>
+int mongoResult(lua_State *L, T1 v1){
+	if (isLuaCoroutine(L)){
+		AsyncTaskMgr::instance().post([=](){
+			LuaPush(L, v1);
+			int ret = lua_resume(L, 1);
+			if (ret == LUA_ERRRUN){
+				lua_tinker::on_error(L);
+			}
+		});
+		return 0;
+	}
+	LuaPush(L, v1);
+	return 1;
+}
+
+template<class T1, class T2>
+int mongoResult(lua_State *L, T1 v1, T2 v2){
+	if (isLuaCoroutine(L)){
+		AsyncTaskMgr::instance().post([=](){
+			LuaPush(L, v1);
+			LuaPush(L, v2);
+			int ret = lua_resume(L, 2);
+			if (ret == LUA_ERRRUN){
+				lua_tinker::on_error(L);
+			}
+		});
+		return 0;
+	}
+	LuaPush(L, v1);
+	LuaPush(L, v2);
+	return 2;
+}
+
+
+
+template<class _Fty>
+int mongoTask(lua_State *L, _Fty && func){
+	if (isLuaCoroutine(L)){
+		AsyncTaskMgr::instance().start(func);
+		return lua_yield(L, 0);
+	}
+	return func();
+}
+
+
+template<class _Fty>
+int mongoTask(lua_State *L, _Fty && func, const char * fmt1){
+	if (isLuaCoroutine(L)){
+		AsyncTaskMgr::instance().start(
+			[=](){
+			try{ return func(); }
+			catch (std::exception &e){
+				return mongoResult(L, false, gs(fmt1, e.what()));
+			}
+		});
+		return lua_yield(L, 0);
+	}
+	return func();
+}
+
+template<class _Fty>
+int mongoTask(lua_State *L, _Fty && func, const char * fmt1, const char * fmt2){
+	if (isLuaCoroutine(L)){
+		AsyncTaskMgr::instance().start(
+			[=](){
+			try{ return func(); }
+			catch (std::exception &e){
+				return mongoResult(L, false, gs(fmt1, fmt2, e.what()));
+			}
+		});
+		return lua_yield(L, 0);
+	}
+	return func();
+}
+
+template<class _Fty>
+int mongoTask(lua_State *L, _Fty && func, const char * fmt1, const char * fmt2, const char * fmt3){
+	if (isLuaCoroutine(L)){
+		AsyncTaskMgr::instance().start(
+			[=](){
+			try{ return func(); }
+			catch (std::exception &e){
+				return mongoResult(L, false, gs(fmt1, fmt2, e.what()));
+			}
+		});
+		return lua_yield(L, 0);
+	}
+	return func();
+}
+
+
+#define MONGO_LUA_ERR_PATH \
+	lua_pushboolean(L, 0); \
+	lua_pushstring(L, "!!!!!! error , unknow path"); \
+	return 2;

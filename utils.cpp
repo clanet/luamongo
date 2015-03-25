@@ -1,9 +1,11 @@
+#include "..\stdafx.h"
 #include <iostream>
-#include <client/dbclient.h>
+#include <mongo/client/dbclient.h>
 #include "utils.h"
 #include "common.h"
 #include <limits.h>
 #include <sstream>
+
 
 using namespace mongo;
 
@@ -74,7 +76,9 @@ void lua_push_value(lua_State *L, const BSONElement &elem) {
         break;
     case mongo::Timestamp:
         push_bsontype_table(L, mongo::Date);
-        lua_pushnumber(L, elem.timestampTime());
+		//MODIFY:timestampTime() => timestamp()
+		
+        lua_pushnumber(L, elem.timestamp().seconds());
         lua_rawseti(L, -2, 1);
         break;
     case mongo::Symbol:
@@ -99,7 +103,8 @@ void lua_push_value(lua_State *L, const BSONElement &elem) {
         break;
     case mongo::jstOID:
         push_bsontype_table(L, mongo::jstOID);
-        lua_pushstring(L, elem.__oid().str().c_str());
+		
+        lua_pushstring(L, elem.__oid().toString().c_str());
         lua_rawseti(L, -2, 1);
         break;
     case mongo::jstNULL:
@@ -378,3 +383,24 @@ LUALIB_API void luaL_setfuncs(lua_State *L, const luaL_Reg *l, int nup) {
   lua_pop(L, nup);  /* remove upvalues */
 }
 #endif
+
+bool isLuaCoroutine(lua_State *L){
+	return LuaEngine::instance().L() != L;
+}
+
+
+void asyncLuaFunc(std::function<void()> func){
+	AsyncTaskMgr::instance().start(func);
+}
+
+//void asyncLuaFunc(lua_State *L, std::function<int(lua_State*)> func){
+//	AsyncTaskMgr::instance().start([L, func](){
+//		int nargs = func(L);
+//		AsyncTaskMgr::instance().post([L, nargs](){
+//			int ret = lua_resume(L, nargs);
+//			if (ret == LUA_ERRRUN){
+//				lua_tinker::on_error(L);
+//			}
+//		});
+//	});
+//}

@@ -23,8 +23,8 @@
 #ifndef MONGO_CXX_EXTENSION
 #define MONGO_CXX_EXTENSION
 
-#include <client/dbclient.h>
-#include <client/gridfs.h>
+#include <mongo/client/dbclient.h>
+#include <mongo/client/gridfs.h>
 
 namespace mongo_cxx_extension {
   

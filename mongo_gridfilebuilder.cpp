@@ -1,5 +1,6 @@
+#include <stdio.h>
 #include <iostream>
-#include <client/dbclient.h>
+#include <mongo/client/dbclient.h>
 #include "mongo_cxx_extension.h"
 #include "utils.h"
 #include "common.h"
